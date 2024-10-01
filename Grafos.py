@@ -1,5 +1,10 @@
 import numpy as np
 from tkinter import *
+import networkx as nx
+import matplotlib.pyplot as plt
+import tkinter as tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import json
 
 class Graph:
     def __init__(self, graph = None, directed = False):
@@ -7,10 +12,12 @@ class Graph:
             graph = {}
         self.graph = graph
         self.directed = directed
+        self.index_map={}
     
     def add_vertex(self, v):
         if v not in self.graph:
             self.graph[v] = []
+            self.graph = dict(sorted(self.graph.items()))
             return f"Vertex {v} Added"
         return "Vertex Already in Graph"
     
@@ -27,7 +34,9 @@ class Graph:
             if not self.directed:
                 if u not in self.graph[v]:
                     self.graph[v].append(u)
+                    self.graph = dict(sorted(self.graph.items()))
                     return f"Edges {u}-{v} and {v}-{u} Added"+msg
+            self.graph = dict(sorted(self.graph.items()))
             return f"Edge {u}-{v} Added"+msg
         return "Edge Already in Graph"
         
@@ -35,9 +44,10 @@ class Graph:
         if v not in self.graph.keys():
             return "Invalid Vertex"
         for i in self.graph[v]:
-            if v in self.graph[i]:
+            if self.graph[i] and v in self.graph[i]:
                 self.graph[i].remove(v)
         del self.graph[v]
+        self.update_index_map()
         return f"Vertex {v} Removed"
     
     def remove_edge(self, u, v):
@@ -55,15 +65,18 @@ class Graph:
         return size
     
     def adjacency_matrix(self):
-        vertices = sorted(self.graph.keys())
-        size = len(vertices)
-        index_map = {vertices[i]: i for i in range(size)}
-        matrix = np.zeros((len(vertices), len(vertices)), dtype = int)
+        self.update_index_map()  # Ensure the index_map is always up-to-date
+        size = len(self.index_map)
+        matrix = np.zeros((size, size), dtype=int)
         for v, neighbors in self.graph.items():
             for neighbor in neighbors:
-                i, j = index_map[v], index_map[neighbor]
+                i, j = self.index_map[v], self.index_map[neighbor]
                 matrix[i][j] = 1
         return matrix
+    
+    def update_index_map(self):
+        vertices = sorted(self.graph.keys())
+        self.index_map = {vertices[i]: i for i in range(len(vertices))}
 
     def print_matrix(self):
         matrix = self.adjacency_matrix()
@@ -94,7 +107,7 @@ class Graph:
                 if search is not None and vertex == search:
                     break
 
-                for v in self.graph[vertex]:
+                for v in sorted(self.graph[vertex]):
                     if v not in visited:
                         queue.append(v)
 
@@ -123,7 +136,7 @@ class Graph:
                 if search is not None and vertex == search:
                     break
                 
-                for v in reversed(self.graph[vertex]):
+                for v in reversed(sorted(self.graph[vertex])):
                     if v not in visited:
                         stack.append(v)
 
@@ -211,6 +224,155 @@ class Graph:
                     subgraphs.append(self.connectivity(vertex)[0])
                     visited.update(self.connectivity(vertex)[0])
         return subgraphs
+    
+    def triangle_cycles(self):
+        for node in self.graph:
+            neighbors = list(self.graph[node])
+            for i in range(len(neighbors)):
+                for j in range(i + 1, len(neighbors)):
+                    if neighbors[j] in self.graph[neighbors[i]]:
+                        return True  # Found a triangle
+        return False  # No triangle found
+
+    def count_edges(self):
+        edge_count = 0
+        for node, neighbors in self.graph.items():
+            edge_count += len(neighbors)
+        return edge_count // (1 if self.directed else 2)
+    
+    def is_planar(self):
+        V = len(self.graph)
+        E = self.count_edges()
+        if V >= 3:
+            if E > 3 * V - 6:
+                return False
+            elif (self.triangle_cycles()) == False:
+                if E > 2 * V - 4:
+                    return False
+            else:
+                return True
+        else:
+            return True
+    
+    def find_degrees(self):
+        degrees = {}
+        for vertix, neighbors in self.graph.items():
+            degrees[vertix] = len(neighbors)
+        return degrees
+    
+    def define_colors(self):
+        degrees = self.find_degrees()
+        colors = {}
+        available = {}
+        for vertix in self.graph:
+            available[vertix] = set(range(len(self.graph))) 
+
+        for vertix in sorted(degrees, key=degrees.get, reverse=True): 
+            used_colors = {colors[neighbor] for neighbor in self.graph[vertix] if neighbor in colors}
+            for color in available[vertix]:
+                if color not in used_colors:
+                    colors[vertix] = color
+                    break
+        return colors
+    
+    def is_directed(self):
+        for node in self.graph:
+            for neighbor in self.graph[node]:
+                if node not in self.graph.get(neighbor, []):
+                    return True
+        return False
+    
+    def draw_graph(self, canvas_frame):
+        if self.is_directed():
+            G = nx.DiGraph()
+        else:
+            G = nx.Graph()
+
+        for node in self.graph:
+            G.add_node(node)
+
+        for node, neighbors in self.graph.items():
+            for neighbor in neighbors:
+                G.add_edge(node, neighbor)
+
+        node_colors = self.define_colors()
+        color_map = {
+            0: 'green',
+            1: 'blue',
+            2: 'red',
+            3: 'yellow',
+            4: 'purple',
+            5: 'orange',
+            6: 'pink',
+            7: 'brown',
+            8: 'cyan',
+            9: 'magenta',
+            10: 'lime',
+            11: 'olive',
+            12: 'navy',
+            13: 'teal',
+            14: 'maroon',
+            15: 'violet',
+            16: 'turquoise',
+            17: 'gold',
+            18: 'salmon',
+            19: 'beige'
+        }
+        colors_to_draw = [color_map[node_colors[node]] for node in G.nodes()]
+
+        fig, ax = plt.subplots(figsize=(7.5, 5.75))
+        try:
+            pos = nx.planar_layout(G)
+        except:
+            pos = nx.circular_layout(G)
+
+        nx.draw(G, pos, with_labels=True, node_color=colors_to_draw, ax=ax)
+        canvas = FigureCanvasTkAgg(fig, master=canvas_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+        return fig
+    
+    def save_graph(self, file_path):
+        if file_path:
+            with open(file_path, 'w') as json_file:
+                json.dump(self.graph, json_file, indent=4)
+            return True
+        else:
+            return False
+
+    def saveas_graph(self):
+        root = tk.Tk()
+        root.withdraw() 
+
+        file_path = tk.filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
+        if file_path:
+            with open(file_path, 'w') as json_file:
+                json.dump(self.graph, json_file, indent=4)
+            root.destroy()
+            return True, file_path
+        else:
+            root.destroy()
+            return False
+
+    def open_graph(self):
+        root = tk.Tk()
+        root.withdraw()
+
+        file_path = tk.filedialog.askopenfilename(filetypes=[("JSON files", "*.json")])
+        if file_path:
+            with open(file_path, 'r') as json_file:
+                self.graph = json.load(json_file)
+            root.destroy()
+            return True, file_path
+        else:
+            root.destroy()
+            return False
+        
+    def clear_graph(self):
+        if self.graph is not {}:
+            self.graph = {}
+        
 
 '''
 g = Graph(directed=False)
@@ -218,6 +380,11 @@ g.add_edge('C', 'D')
 g.add_edge('A', 'B')
 g.add_edge('D', 'F')
 g.add_edge('E', 'F')
+g.add_edge('E', 'A')
+print(g.adjacency_matrix())
+print(g.find_degrees())
+print(g.define_colors())
+
 print(g.ftd('A'))
 print(g.fti('A'))
 print(g.dfs('A'))
