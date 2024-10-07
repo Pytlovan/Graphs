@@ -15,4 +15,4 @@ Application for creating and analyzing graphs intrinsic characteristics
 - Check Chromatic Number
 
 ## Installation
-Just download the latest release available on [releases](https://github.com/Pytlovan/Graphs/releases)
+Just download the latest release available on [releases](https://github.com/Pytlovan/Graphs/Releases).
