@@ -11,7 +11,7 @@ class GraphApp:
         #App Initialization
         self.graph = Graph()
         self.root = root
-        self.root.title("Graph Analysis v0.3.2")
+        self.root.title("Graph Analysis v0.3.3")
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         #Variable Initialization
@@ -62,12 +62,14 @@ class GraphApp:
         self.save_button = tk.Button(self.file_frame, text='Save', command=self.save)
         self.open_button = tk.Button(self.file_frame, text='Open', command=self.open_from_file)
         self.clear_button = tk.Button(self.file_frame, text='Clear', command=self.clear_graph)
+        self.specs_button = tk.Button(self.file_frame, text='Specs', command=self.show_specs)
 
         #File Widgets:
         self.saveas_button.grid(row=0, column=2, padx=5)
         self.save_button.grid(row=0, column=1,padx=5)
         self.open_button.grid(row=0, column=0, padx=5)
         self.clear_button.grid(row=0, column=3, padx=5)
+        self.specs_button.grid(row=0, column=4, padx=5, sticky='E')
 
         #Vertex Input
         self.vertex_label = tk.Label(self.vertex_frame, text="Vertex:")
@@ -390,7 +392,7 @@ class GraphApp:
         if not self.file_path:
             self.save_to_file()
         else:
-            saved = self.graph.save_graph(self.file_path)
+            saved, self.file_path = self.graph.save_graph(self.file_path)
             if saved:
                 self.update_log('Graph saved!')
             else:
@@ -414,6 +416,7 @@ class GraphApp:
                 save = messagebox.askyesno("Clear Graph","Do you want to save before clearing the current graph?")
                 if save:
                     self.save_to_file()
+                self.file_path = None
                 self.graph.clear_graph()
                 self.update_matrix()
                 self.update_subgraphs()
@@ -423,6 +426,17 @@ class GraphApp:
                 self.update_log("No changes!")
         else:
             messagebox.showwarning("No graph detected", "There is no graph created or loaded currently.")
+    
+    def show_specs(self):
+        specs_window = tk.Toplevel()
+        specs_window.title("Current Graph Specs")
+        
+        specs_text = tk.Text(specs_window, height=7, state='normal')
+        specs_text.grid(column=0, row=0, padx=10, pady=10)
+        specs = self.graph.graph_specs()
+        for key, value in specs.items():
+            specs_text.insert(tk.END, f'{key}: {value}\n')
+        specs_text.config(state='disabled')
     
     def on_closing(self):
         if self.fig is not None:

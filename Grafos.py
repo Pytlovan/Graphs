@@ -251,8 +251,18 @@ class Graph:
                     return False
             else:
                 return True
+        return True
+    
+    def count_faces(self):
+        if self.graph == {}:
+            return None
+        V = len(self.graph)
+        E = self.count_edges()
+        if self.is_planar() and self.connectivity(list(self.graph.keys())[0])[1]:
+            F = E+2-V
+            return F
         else:
-            return True
+            return None
     
     def find_degrees(self):
         degrees = {}
@@ -337,9 +347,9 @@ class Graph:
         if file_path:
             with open(file_path, 'w') as json_file:
                 json.dump(self.graph, json_file, indent=4)
-            return True
+            return True, file_path
         else:
-            return False
+            return False, file_path
 
     def saveas_graph(self):
         root = tk.Tk()
@@ -353,7 +363,7 @@ class Graph:
             return True, file_path
         else:
             root.destroy()
-            return False
+            return False, file_path
 
     def open_graph(self):
         root = tk.Tk()
@@ -367,11 +377,23 @@ class Graph:
             return True, file_path
         else:
             root.destroy()
-            return False
+            return False, file_path
         
     def clear_graph(self):
         if self.graph is not {}:
             self.graph = {}
+
+    def graph_specs(self):
+        specs = {
+            'Planar': self.is_planar() if self.graph != {} else 'No Graph',
+            'Chromatic Number': len(set(self.define_colors().values())) if not self.is_directed() else 'Counted only for undirected graphs',
+            'Connectivity': self.connectivity(list(self.graph.keys())[0])[1] if self.graph != {} else False,
+            'Directed': self.is_directed(),
+            '#Nodes': len(self.graph),
+            '#Edges': self.count_edges(),
+            '#Faces': self.count_faces() if self.count_faces() else 'Counted only for simple planar connected graphs'
+        }
+        return specs
         
 
 '''
@@ -381,7 +403,10 @@ g.add_edge('A', 'B')
 g.add_edge('D', 'F')
 g.add_edge('E', 'F')
 g.add_edge('E', 'A')
+print(g.graph_specs())
+
 print(g.adjacency_matrix())
+
 print(g.find_degrees())
 print(g.define_colors())
 
