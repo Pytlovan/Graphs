@@ -108,8 +108,7 @@ class KnightProblem:
 
 
     
-n = 8
+n = 10
 
 knight = KnightProblem(size = n)
-knight.print_matrix("44")
-knight.save_board()
+knight.print_matrix("43")
