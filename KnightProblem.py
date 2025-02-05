@@ -1,4 +1,5 @@
 from Grafos import Graph
+from enum import Enum
 import copy
 
 class Board:
@@ -98,17 +99,24 @@ class KnightProblem:
             print(lowest_square_degree)
             if lowest_square_degree:
                 current_pos = lowest_square_degree
-                count+=1
+                count += 1
             else:
+                count += 1
+                order[neighbours[0]] = count
                 keep = False
             
         return order
             
-    
+
+def create_column_enum(n):
+    columns = {chr(65 + i): i for i in range(n)}  # Creates { 'A': 0, 'B': 1, ... }
+    return Enum('Column', columns)
+
+N = 8
+Column = create_column_enum(N)
+
+Start_Square = "B8"
 
 
-    
-n = 10
-
-knight = KnightProblem(size = n)
-knight.print_matrix("43")
+knight = KnightProblem(size = N)
+knight.print_matrix(f"{N - int(Start_Square[1])}{Column[Start_Square[0]].value}")
