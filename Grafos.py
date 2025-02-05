@@ -5,23 +5,29 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import json
+import scipy as sp
 
 class Graph:
-    def __init__(self, graph = None, directed = False):
+    def __init__(self, graph = None, directed=False, weighted=False):
         if graph is None:
             graph = {}
         self.graph = graph
+        self.weighted = weighted
         self.directed = directed
-        self.index_map={}
+        if weighted:
+            self.directed = True
+        self.index_map = {}
     
     def add_vertex(self, v):
         if v not in self.graph:
-            self.graph[v] = []
+            self.graph[v] = {}
             self.graph = dict(sorted(self.graph.items()))
             return f"Vertex {v} Added"
         return "Vertex Already in Graph"
     
-    def add_edge(self, u, v):
+    def add_edge(self, u, v, weight=1):
+        if weight is not None and weight<= 0:
+            return "Weight needs to be greater than 0 (zero)."
         msg = ''
         if u not in self.graph:
             self.add_vertex(u)
@@ -29,32 +35,43 @@ class Graph:
         if v not in self.graph:
             self.add_vertex(v)
             msg += f"\nVertex {v} Added"
-        if v not in self.graph[u]:
-            self.graph[u].append(v)
+        if v not in self.graph[u].keys():
+            self.graph[u][v] = weight
             if not self.directed:
                 if u not in self.graph[v]:
-                    self.graph[v].append(u)
+                    self.graph[v][u] = weight
                     self.graph = dict(sorted(self.graph.items()))
                     return f"Edges {u}-{v} and {v}-{u} Added"+msg
             self.graph = dict(sorted(self.graph.items()))
             return f"Edge {u}-{v} Added"+msg
         return "Edge Already in Graph"
+    
+    def edit_weight(self, u, v, weight):
+        if weight is not None and weight<= 0:
+            return "Weight needs to be greater than 0 (zero)."
+        if u in self.graph and v in self.graph:
+            self.graph[u][v] = weight
+            if not self.directed:
+                self.graph[v][u] = weight
+            return f"Weight of edge {u}-{v} altered to {weight}"
+        else:
+            return "Vertix or Edge not in Graph"
         
     def remove_vertex(self, v):
         if v not in self.graph.keys():
             return "Invalid Vertex"
-        for i in self.graph[v]:
-            if self.graph[i] and v in self.graph[i]:
-                self.graph[i].remove(v)
         del self.graph[v]
+        for neighbors in self.graph.values():
+            if v in neighbors:
+                del neighbors[v]
         self.update_index_map()
         return f"Vertex {v} Removed"
     
     def remove_edge(self, u, v):
         if u in self.graph and v in self.graph[u]:
-            self.graph[u].remove(v)
+            del self.graph[u][v]
             if not self.directed:
-                self.graph[v].remove(u)
+                del self.graph[v][u]
                 return f"Edges {u}-{v} and {v}-{u} Removed"
             return f"Edge {u}-{v} Removed"
         return "Edge(s) not connected!"
@@ -69,9 +86,9 @@ class Graph:
         size = len(self.index_map)
         matrix = np.zeros((size, size), dtype=int)
         for v, neighbors in self.graph.items():
-            for neighbor in neighbors:
+            for neighbor, weight in neighbors.items():
                 i, j = self.index_map[v], self.index_map[neighbor]
-                matrix[i][j] = 1
+                matrix[i][j] = weight
         return matrix
     
     def update_index_map(self):
@@ -117,7 +134,7 @@ class Graph:
         
         return result
     
-    def dfs(self, start, search = None):
+    def dfs(self, start, search = None, cut = False):
         vertices = sorted(self.graph.keys())
         if start not in vertices:
             return
@@ -139,10 +156,10 @@ class Graph:
                 for v in reversed(sorted(self.graph[vertex])):
                     if v not in visited:
                         stack.append(v)
-
-        for vertex in vertices:
-            if vertex not in visited:
-                result.append(vertex)
+        if cut:
+            for vertex in vertices:
+                if vertex not in visited:
+                    result.append(vertex)   
         
         return result
 
@@ -278,7 +295,7 @@ class Graph:
             available[vertix] = set(range(len(self.graph))) 
 
         for vertix in sorted(degrees, key=degrees.get, reverse=True): 
-            used_colors = {colors[neighbor] for neighbor in self.graph[vertix] if neighbor in colors}
+            used_colors = {colors[neighbor] for neighbor in self.graph[vertix].keys() if neighbor in colors}
             for color in available[vertix]:
                 if color not in used_colors:
                     colors[vertix] = color
@@ -288,7 +305,9 @@ class Graph:
     def is_directed(self):
         for node in self.graph:
             for neighbor in self.graph[node]:
-                if node not in self.graph.get(neighbor, []):
+                if node not in self.graph[neighbor]:
+                    return True
+                if self.graph[node][neighbor] != self.graph[neighbor][node]:
                     return True
         return False
     
@@ -302,8 +321,21 @@ class Graph:
             G.add_node(node)
 
         for node, neighbors in self.graph.items():
-            for neighbor in neighbors:
-                G.add_edge(node, neighbor)
+            for neighbor, weight in neighbors.items():
+                if self.is_directed():  # Assuming this is a method, not an attribute
+                    # Check if the reverse edge exists (neighbor -> node)
+                    if G.has_edge(neighbor, node):
+                        # If the reverse edge exists, add the weight for the reverse edge
+                        G[neighbor][node].update({'weight_vu': weight})
+                        G.add_edge(node, neighbor, weight=weight, wight_vu=G[neighbor][node]['weight'])
+                    else:
+                        # Add the edge in the forward direction
+                        G.add_edge(node, neighbor, weight=weight)
+                else:
+                    # For undirected graphs, just add the edge with the given weight
+                    G.add_edge(node, neighbor, weight=weight)
+
+        
 
         node_colors = self.define_colors()
         color_map = {
@@ -334,9 +366,31 @@ class Graph:
         try:
             pos = nx.planar_layout(G)
         except:
-            pos = nx.circular_layout(G)
+            pos = nx.spring_layout(G)
+        
+        if self.is_directed():
+            nx.draw(G, pos, with_labels=True, node_color='lightblue', font_weight='bold', ax=ax)
+        else:
+            nx.draw(G, pos, with_labels=True, node_color=colors_to_draw, font_weight='bold', ax=ax)
 
-        nx.draw(G, pos, with_labels=True, node_color=colors_to_draw, ax=ax)
+        if self.weighted:
+            # Create custom edge labels to display weights
+            edge_labels = {}
+            for u, v, data in G.edges(data=True):
+                forward_weight = data.get('weight', 'N/A')
+                
+                # Check if the reverse edge exists and get its weight
+                reverse_weight = G[v][u].get('weight', 'N/A') if G.has_edge(v, u) else None
+                
+                # Create a label based on the presence of the reverse weight
+                if reverse_weight is not None:  # Reverse weight exists
+                    edge_labels[(u, v)] = f"{u}{v}: {forward_weight} | {v}{u}: {reverse_weight}"
+                else:  # No reverse weight
+                    edge_labels[(u, v)] = f"{forward_weight}"  # Only show forward weight
+                
+
+            nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+    
         canvas = FigureCanvasTkAgg(fig, master=canvas_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
@@ -346,6 +400,7 @@ class Graph:
     def save_graph(self, file_path):
         if file_path:
             with open(file_path, 'w') as json_file:
+                self.graph['weighted'] = self.weighted
                 json.dump(self.graph, json_file, indent=4)
             return True, file_path
         else:
@@ -358,6 +413,8 @@ class Graph:
         file_path = tk.filedialog.asksaveasfilename(defaultextension=".json", filetypes=[("JSON files", "*.json")])
         if file_path:
             with open(file_path, 'w') as json_file:
+
+                self.graph['weighted'] = self.weighted
                 json.dump(self.graph, json_file, indent=4)
             root.destroy()
             return True, file_path
@@ -373,6 +430,10 @@ class Graph:
         if file_path:
             with open(file_path, 'r') as json_file:
                 self.graph = json.load(json_file)
+                self.weighted = self.graph['weighted']
+                if self.weighted:
+                    self.directed = True
+                del self.graph['weighted']
             root.destroy()
             return True, file_path
         else:
@@ -394,9 +455,72 @@ class Graph:
             '#Faces': self.count_faces() if self.count_faces() else 'Counted only for simple planar connected graphs'
         }
         return specs
-        
+    
+class Board:
+    def __init__(self, size):
+        self.size = size
+        self.matrix = [["" for _ in range(self.size)] for _ in range(self.size)]
+        self.connections = Graph
 
-'''
+    def valid_jumps(self, x, y):
+        connections = {}
+        movements = {
+            1: (x-2, y-1),
+            2: (x-2, y+1),
+            3: (x-1, y-2),
+            4: (x-1, y+2),
+            5: (x+1, y-2),
+            6: (x+1, y+2),
+            7: (x+2, y-1),
+            8: (x+2, y+1)
+        }
+        for key, jump in movements.items():
+            i = jump[0]
+            j = jump[1]
+            if i >= 0 and i < self.size and j >=0 and j < self.size:
+                connections[f"{i}{j}"] = 1
+        return connections
+
+    # create_board_connections: 8n => O(n) where n = vertix count (size²) // ex: 64*8
+    def create_board_connections(self):
+        connections = {}
+        for x in range(self.size):
+            for y in range(self.size):
+                connections[f"{x}{y}"] = self.valid_jumps(x, y)
+        self.connections.graph = connections 
+
+class KnightProblem:
+    def __init__(self, size=8):
+        self.board = Board(size)
+        self.size = size
+        self.board.create_board_connections()
+        
+    #find_degrees: O(n) where n = vertix count (size²)
+    def create_matrix(self):
+        matrix = [["" for _ in range(self.size)] for _ in range(self.size)]
+        degrees = self.board.connections.find_degrees(self.board.connections)
+        for x in range(self.size):
+            for y in range(self.size):
+                matrix[x][y] = degrees[f"{x}{y}"]
+        return matrix
+    
+    def print_matrix(self):
+        self.matrix = self.create_matrix()
+        for linha in self.matrix:
+            print(linha)
+    
+    def save_board(self):
+        self.board.connections.weighted = False
+        self.board.connections.saveas_graph(self.board.connections)
+
+    
+n = 8
+
+knight = KnightProblem(size = n)
+knight.print_matrix()
+knight.save_board()
+
+''' 
 g = Graph(directed=False)
 g.add_edge('C', 'D')
 g.add_edge('A', 'B')

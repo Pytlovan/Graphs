@@ -80,31 +80,39 @@ class GraphApp:
         self.remove_vertex_button = tk.Button(self.vertex_frame, text="Remove", command = self.remove_vertex)
 
         #Vertex Widgets
-        self.vertex_label.grid(row=0, column=0, padx=5)
-        self.vertex_entry.grid(row=1, column=0, padx=5)
-        self.add_vertex_button.grid(row=0, column=1, padx=5, sticky='W')
+        self.vertex_label.grid(row=0, column=0, padx=5, sticky='W')
+        self.vertex_entry.grid(row=0, column=1, padx=5, sticky='W')
+        self.add_vertex_button.grid(row=1, column=0, padx=5, sticky='W')
         self.remove_vertex_button.grid(row=1, column=1, padx=5,sticky="W")
 
         #Edge Input
         self.edge_label = tk.Label(self.vertex_frame, text="Edge:")
         self.edge_entry_u = tk.Entry(self.vertex_frame, width=5)
         self.edge_entry_v = tk.Entry(self.vertex_frame, width=5)
+        self.edge_weight_label=tk.Label(self.vertex_frame, text="Weight:")
+        self.edge_entry_w = tk.Entry(self.vertex_frame, width=5)
 
         #Edge Buttons
         self.add_edge_button = tk.Button(self.vertex_frame, text="Add", command=self.add_edge)
         self.remove_edge_button = tk.Button(self.vertex_frame, text="Remove", command=self.remove_edge)
+        self.edit_weight_button = tk.Button(self.vertex_frame, text="Edit", command=self.edit_weight)
 
         #Directed Checkbox
         self.is_directed = tk.BooleanVar()
         self.directed_checkbox = tk.Checkbutton(self.vertex_frame, text = "Directed", variable=self.is_directed, command=self.set_graph_type)
+        if self.graph.weighted:
+            self.directed_checkbox.config(state='Disabled')
 
         #Edges Widgets
         self.edge_label.grid(row=0, column=2, padx=5, pady=5, sticky="E")
-        self.edge_entry_u.grid(row=1, column=2, padx=5, pady=5, sticky="E")
-        self.edge_entry_v.grid(row=2, column=2, padx=5, pady=5, sticky="E")
-        self.add_edge_button.grid(row=0, column=3, padx=5, pady=5, sticky="W")
-        self.remove_edge_button.grid(row=1, column=3, padx=5, pady=5, sticky="W")
-        self.directed_checkbox.grid(row=2, column=3, padx=5, pady=5, sticky="W")
+        self.edge_entry_u.grid(row=0, column=3, padx=5, pady=5, sticky="W")
+        self.edge_entry_v.grid(row=0, column=3, padx=5, pady=5, sticky="E")
+        self.edge_weight_label.grid(row=1, column=2, padx=5,pady=5,sticky="E")
+        self.edge_entry_w.grid(row=1,column=3,padx=5,pady=5,sticky='W')
+        self.add_edge_button.grid(row=2, column=2, padx=5, pady=5, sticky="E")
+        self.remove_edge_button.grid(row=2, column=3, padx=5, pady=5, sticky="W")
+        self.edit_weight_button.grid(row=2, column=3,padx=5, pady=5,sticky='E')
+        self.directed_checkbox.grid(row=3, column=3, padx=5, pady=5, sticky="E")
 
         #-------------------------------------------------#
         #Matrix Positioning
@@ -189,8 +197,8 @@ class GraphApp:
         self.log_text = tk.Text(self.vertex_frame, height=3, width=53, state='disabled', font=("Helvetica", 10, "italic"))
 
         #Log Widgets
-        self.log_label.grid(row=3, column=0, pady=5)
-        self.log_text.grid(row=3, column=1, columnspan = 3, pady=5, padx=5)
+        self.log_label.grid(row=4, column=0, pady=5)
+        self.log_text.grid(row=4, column=1, columnspan = 3, pady=5, padx=5)
 
         self.generate_graph()
         self.update_matrix()
@@ -213,15 +221,52 @@ class GraphApp:
     def add_edge(self):
         u = self.edge_entry_u.get()
         v = self.edge_entry_v.get()
+        w = self.edge_entry_w.get()
         if u and v:
-            msg = self.graph.add_edge(u, v)
+            if not w:
+                w=1
+            else:
+                try:
+                    w = int(w)
+                    self.graph.weighted=True
+                    self.graph.directed=True
+                except:
+                    messagebox.showerror("Value Error", "Weight value needs to be an integer.\nWill be defined as default (1).")
+                    w=1
+            msg = self.graph.add_edge(u, v, w)
             self.update_log(msg)
             self.update_matrix()
             self.update_subgraphs()
             self.generate_graph()
             self.edge_entry_u.delete(0, tk.END)
             self.edge_entry_v.delete(0, tk.END) 
-
+            self.edge_entry_w.delete(0, tk.END)
+        else:
+            messagebox.showwarning("Input Error", "Please enter both vertices for the edge.")
+    
+    def edit_weight(self):
+        u = self.edge_entry_u.get()
+        v = self.edge_entry_v.get()
+        w = self.edge_entry_w.get()
+        if u and v:
+            if not w:
+                w=1
+            else:
+                try:
+                    w = int(w)
+                    self.graph.weighted=True
+                    self.graph.directed=True
+                except:
+                    messagebox.showerror("Value Error", "Weight value needs to be an integer.\nWill be defined as default (1).")
+                    w=1
+            msg = self.graph.edit_weight(u, v, w)
+            self.update_log(msg)
+            self.update_matrix()
+            self.update_subgraphs()
+            self.generate_graph()
+            self.edge_entry_u.delete(0, tk.END)
+            self.edge_entry_v.delete(0, tk.END)
+            self.edge_entry_w.delete(0, tk.END)
         else:
             messagebox.showwarning("Input Error", "Please enter both vertices for the edge.")
     
