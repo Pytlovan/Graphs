@@ -456,69 +456,7 @@ class Graph:
         }
         return specs
     
-class Board:
-    def __init__(self, size):
-        self.size = size
-        self.matrix = [["" for _ in range(self.size)] for _ in range(self.size)]
-        self.connections = Graph
 
-    def valid_jumps(self, x, y):
-        connections = {}
-        movements = {
-            1: (x-2, y-1),
-            2: (x-2, y+1),
-            3: (x-1, y-2),
-            4: (x-1, y+2),
-            5: (x+1, y-2),
-            6: (x+1, y+2),
-            7: (x+2, y-1),
-            8: (x+2, y+1)
-        }
-        for key, jump in movements.items():
-            i = jump[0]
-            j = jump[1]
-            if i >= 0 and i < self.size and j >=0 and j < self.size:
-                connections[f"{i}{j}"] = 1
-        return connections
-
-    # create_board_connections: 8n => O(n) where n = vertix count (size²) // ex: 64*8
-    def create_board_connections(self):
-        connections = {}
-        for x in range(self.size):
-            for y in range(self.size):
-                connections[f"{x}{y}"] = self.valid_jumps(x, y)
-        self.connections.graph = connections 
-
-class KnightProblem:
-    def __init__(self, size=8):
-        self.board = Board(size)
-        self.size = size
-        self.board.create_board_connections()
-        
-    #find_degrees: O(n) where n = vertix count (size²)
-    def create_matrix(self):
-        matrix = [["" for _ in range(self.size)] for _ in range(self.size)]
-        degrees = self.board.connections.find_degrees(self.board.connections)
-        for x in range(self.size):
-            for y in range(self.size):
-                matrix[x][y] = degrees[f"{x}{y}"]
-        return matrix
-    
-    def print_matrix(self):
-        self.matrix = self.create_matrix()
-        for linha in self.matrix:
-            print(linha)
-    
-    def save_board(self):
-        self.board.connections.weighted = False
-        self.board.connections.saveas_graph(self.board.connections)
-
-    
-n = 8
-
-knight = KnightProblem(size = n)
-knight.print_matrix()
-knight.save_board()
 
 ''' 
 g = Graph(directed=False)
